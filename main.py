@@ -5,9 +5,7 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        app=app,
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-    )
+    from app.core.settings import get_settings
+
+    settings = get_settings()
+    uvicorn.run(app=app, host=settings.host, port=settings.port, reload=True)

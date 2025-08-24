@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: something_new
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d something_new" 
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        working-directory: ./
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r something_new_api/requirements.txt
+
+      - name: Prepare env
+        working-directory: ./something_new_api
+        run: |
+          cp .env.example .env || true
+          echo "APP_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/something_new" >> .env
+
+      - name: Run migrations
+        working-directory: ./something_new_api
+        run: |
+          alembic upgrade head
+
+      - name: Lint
+        working-directory: ./something_new_api
+        run: |
+          ruff check .
+
+      - name: Test
+        working-directory: ./something_new_api
+        run: |
+          pytest -q
+
+

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from logging.config import fileConfig
+import sys
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.core.settings import get_settings
 from app.db.base import Base
@@ -12,16 +15,13 @@ from app.db.base import Base
 
 config = context.config
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
-
 
 target_metadata = Base.metadata
 
 
 def get_url() -> str:
     settings = get_settings()
-    return settings.database_url or "postgresql+asyncpg://postgres:postgres@localhost:5432/something_new"
+    return settings.database_url or "postgresql+asyncpg://postgres:postgres@localhost:5433/something_new"
 
 
 def run_migrations_offline() -> None:

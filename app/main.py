@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.logging import configure_logging, get_logger
 from app.core.sentry import init_sentry
 from app.core.settings import get_settings
-from app.db.session import engine
+from app.db.session import build_engine_and_sessionmaker
 from app.api.router import api_router
 
 
@@ -43,6 +43,15 @@ def create_app() -> FastAPI:
         router=api_router,
         prefix="/api",
     )
+
+    db_engine, db_sessionmaker = build_engine_and_sessionmaker(
+        database_url=(
+            settings.database_url
+            or "postgresql+asyncpg://postgres:postgres@localhost:5433/something_new"
+        ),
+    )
+    application.state.db_engine = db_engine
+    application.state.db_sessionmaker = db_sessionmaker
 
     @application.get("/health", tags=["health"])
     async def healthcheck() -> dict[str, str]:

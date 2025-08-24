@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     database_url: str | None = None
     redis_url: str = "redis://localhost:6379/0"
     rq_default_queue_name: str = "default"
+    jwt_secret: str = "dev-secret"
+    jwt_algorithm: str = "HS256"
+    jwt_access_ttl_minutes: int = 30
+    s3_region: str | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_bucket: str | None = None
 
     @field_validator("cors_origins", mode="before")
     @classmethod

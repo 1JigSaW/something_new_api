@@ -1,29 +1,36 @@
 from collections.abc import AsyncIterator
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-from app.core.settings import get_settings
-
-
-settings = get_settings()
-engine = create_async_engine(
-    url=settings.database_url or "postgresql+asyncpg://postgres:postgres@localhost:5432/something_new",
-    pool_pre_ping=True,
-)
-AsyncSessionLocal = async_sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False,
-    expire_on_commit=False,
-    class_=AsyncSession,
+from fastapi import Request
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
 )
 
 
-async def get_db_session() -> AsyncIterator[AsyncSession]:
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+def build_engine_and_sessionmaker(
+    database_url: str,
+) -> tuple[AsyncEngine, async_sessionmaker[AsyncSession]]:
+    engine = create_async_engine(
+        url=database_url,
+        pool_pre_ping=True,
+    )
+    session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(
+        bind=engine,
+        autoflush=False,
+        autocommit=False,
+        expire_on_commit=False,
+        class_=AsyncSession,
+    )
+    return engine, session_maker
+
+
+async def get_db_session(
+    request: Request,
+) -> AsyncIterator[AsyncSession]:
+    session_maker: async_sessionmaker[AsyncSession] = request.app.state.db_sessionmaker
+    async with session_maker() as session:
+        yield session
 
 
