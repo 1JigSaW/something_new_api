@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timezone
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from pydantic import BaseModel, EmailStr
 
 from app.db.session import get_db_session
 from app.services.auth_service import AuthService
-from app.core.security import create_access_token
+from app.core.security import create_access_token, create_refresh_token, blacklist_token
+from app.core.settings import get_settings
 from app.api.deps.auth import get_current_user_id
 
 
@@ -22,6 +25,11 @@ class VerifyIn(BaseModel):
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    refresh_token: str | None = None
+
+
+class RefreshIn(BaseModel):
+    refresh_token: str
 
 
 @router.post("/request-code", status_code=204)
@@ -46,19 +54,37 @@ async def verify(
         token = await service.verify_code(email=payload.email, code=payload.code)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
-    return TokenOut(access_token=token)
+    settings = get_settings()
+    sub = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]).get("sub")
+    refresh = create_refresh_token(subject=str(sub))
+    return TokenOut(access_token=token, refresh_token=refresh)
 
 
 @router.post("/refresh", response_model=TokenOut)
 async def refresh(
-    user_id: int = Depends(get_current_user_id),
+    payload: RefreshIn,
 ):
-    token = create_access_token(subject=str(user_id))
-    return TokenOut(access_token=token)
+    settings = get_settings()
+    try:
+        data = jwt.decode(payload.refresh_token, settings.jwt_refresh_secret, algorithms=[settings.jwt_algorithm])
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    access = create_access_token(subject=str(data.get("sub")))
+    return TokenOut(access_token=access)
 
 
 @router.post("/logout", status_code=204)
-async def logout():
+async def logout(
+    user_id: int = Depends(get_current_user_id),
+    authorization: str = Header(..., alias="Authorization"),
+):
+    settings = get_settings()
+    token = authorization.split(" ", 1)[1]
+    data = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    issued_at = int(data.get("iat"))
+    exp = int(data.get("exp"))
+    ttl = max(0, exp - int(datetime.now(timezone.utc).timestamp()))
+    blacklist_token(jti=str(issued_at), ttl_seconds=ttl)
     return
 
 

@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-secret"
     jwt_algorithm: str = "HS256"
     jwt_access_ttl_minutes: int = 30
+    jwt_refresh_secret: str = "dev-refresh-secret"
+    jwt_refresh_ttl_minutes: int = 60 * 24 * 14
+    jwt_blacklist_prefix: str = "jwt:blacklist:"
+
+    admin_token: str | None = None
     s3_region: str | None = None
     s3_access_key_id: str | None = None
     s3_secret_access_key: str | None = None
