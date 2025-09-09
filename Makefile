@@ -1,6 +1,6 @@
 PY=python3
 
-.PHONY: install install-dev up down dev migrate revision lint fmt type test worker pre-commit seed-challenges seed-meta
+.PHONY: install install-dev up down dev migrate revision lint fmt type test worker pre-commit seed-challenges seed-meta seed-all
 
 install:
 	$(PY) -m pip install --upgrade pip
@@ -45,6 +45,9 @@ seed-challenges:
 
 seed-meta:
 	$(PY) -m app.tasks.seed_meta
+
+seed-all:
+	$(PY) -m app.tasks.seed_all
 
 pre-commit:
 	pre-commit install

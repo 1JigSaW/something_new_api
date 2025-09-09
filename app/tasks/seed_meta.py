@@ -16,9 +16,31 @@ async def seed() -> None:
         ),
     )
     async with session_maker() as session:
-        cats = ["movement", "breath", "mindset", "nutrition"]
+        cats = [
+            "movement", 
+            "breath", 
+            "mindset", 
+            "nutrition", 
+            "creativity", 
+            "learning", 
+            "social", 
+            "productivity", 
+            "wellness", 
+            "adventure"
+        ]
         sizes = ["small", "medium", "large"]
-        tags = ["walk", "mindful", "relax", "hydrate"]
+        tags = [
+            "walk", 
+            "mindful", 
+            "relax", 
+            "hydrate", 
+            "create", 
+            "learn", 
+            "connect", 
+            "focus", 
+            "energy", 
+            "explore"
+        ]
 
         await session.execute(insert(Category).values([{"name": n} for n in cats]).on_conflict_do_nothing(index_elements=["name"]))
         await session.execute(insert(Size).values([{"name": n} for n in sizes]).on_conflict_do_nothing(index_elements=["name"]))

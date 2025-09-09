@@ -17,9 +17,13 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 def require_admin(
-    x_admin_token: str = Header(..., alias="X-Admin-Token"),
+    x_admin_token: str = Header(None, alias="X-Admin-Token"),
 ):
     settings = get_settings()
+    # В режиме разработки не требуем токен
+    if settings.environment == "dev" and settings.debug:
+        return
+    # В продакшене требуем токен
     if not settings.admin_token or x_admin_token != settings.admin_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
@@ -175,4 +179,30 @@ async def admin_seed_challenges():
 async def admin_seed_meta():
     await seed_meta()
     return {"status": "ok"}
+
+
+@router.get("/users", dependencies=[Depends(require_admin)])
+async def list_users(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    session=Depends(get_db_session),
+):
+    from app.models.user import User
+    stmt = select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
+    rows = await session.execute(stmt)
+    users = list(rows.scalars().all())
+    
+    return [
+        {
+            "id": user.id,
+            "email": user.email,
+            "is_active": user.is_active,
+            "premium_until": user.premium_until.isoformat() if user.premium_until else None,
+            "replacements_count_today": user.replacements_count_today,
+            "challenges_count_today": user.challenges_count_today,
+            "last_seen": user.last_seen.isoformat() if user.last_seen else None,
+            "created_at": user.created_at.isoformat(),
+        }
+        for user in users
+    ]
 

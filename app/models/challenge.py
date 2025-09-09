@@ -10,7 +10,7 @@ class Challenge(Base):
     __tablename__ = "challenges"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False, unique=True, index=True)
     short_description: Mapped[str] = mapped_column(String(500), nullable=True)
     category: Mapped[str] = mapped_column(String(50), nullable=True)
     tags: Mapped[str] = mapped_column(String(200), nullable=True)
