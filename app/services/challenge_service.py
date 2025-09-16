@@ -37,4 +37,18 @@ class ChallengeService:
     ) -> Challenge | None:
         return await self.repo.get_by_id(challenge_id=challenge_id)
 
+    async def get_random(
+        self,
+        limit: int = 5,
+        category: str | None = None,
+        size: str | None = None,
+        free_only: bool = False,
+    ) -> Sequence[Challenge]:
+        return await self.repo.get_random(
+            limit=limit,
+            category=category,
+            size=size,
+            free_only=free_only,
+        )
+
 

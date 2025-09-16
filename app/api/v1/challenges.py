@@ -36,6 +36,25 @@ async def list_challenges(
     return items
 
 
+@router.get("/random", response_model=list[ChallengeRead])
+async def get_random_challenges(
+    limit: int = Query(default=5, ge=1, le=20),
+    category: str | None = Query(default=None),
+    size: str | None = Query(default=None),
+    free_only: bool = Query(default=False),
+    session=Depends(get_db_session),
+):
+    """Get random challenges for daily use"""
+    service = ChallengeService(session=session)
+    items = await service.get_random(
+        limit=limit,
+        category=category,
+        size=size,
+        free_only=free_only,
+    )
+    return items
+
+
 @router.get("/{challenge_id}", response_model=ChallengeRead)
 async def get_challenge(
     challenge_id: int,

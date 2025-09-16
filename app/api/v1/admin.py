@@ -8,7 +8,7 @@ from app.core.settings import get_settings
 from app.db.session import get_db_session
 from app.models.challenge import Challenge
 from app.models.meta import Category, Size, Tag
-from app.schemas.challenge import ChallengeRead
+from app.schemas.challenge import ChallengeCreate, ChallengeRead
 from app.tasks.seed_challenges import seed as seed_challenges
 from app.tasks.seed_meta import seed as seed_meta
 
@@ -30,7 +30,7 @@ def require_admin(
 
 @router.post("/challenges", response_model=ChallengeRead, dependencies=[Depends(require_admin)])
 async def create_challenge(
-    payload: ChallengeRead,
+    payload: ChallengeCreate,
     session=Depends(get_db_session),
 ):
     obj = Challenge(
