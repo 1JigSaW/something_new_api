@@ -1,2 +1,1 @@
-
-
+from .user_activity import UserActivity, UserFavorite
