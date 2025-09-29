@@ -44,6 +44,11 @@ def create_app() -> FastAPI:
         prefix="/api",
     )
 
+    application.include_router(
+        router=api_router,
+        prefix="/api/v1",
+    )
+
     db_engine, db_sessionmaker = build_engine_and_sessionmaker(
         database_url=(
             settings.database_url
