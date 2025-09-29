@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status, Header
+import httpx
 from pydantic import BaseModel, EmailStr
 
 from app.db.session import get_db_session
@@ -8,6 +9,7 @@ from app.services.auth_service import AuthService
 from app.core.security import create_access_token, create_refresh_token, blacklist_token
 from app.core.settings import get_settings
 from app.api.deps.auth import get_current_user_id
+from app.repositories.user_repo import UserRepository
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -86,5 +88,56 @@ async def logout(
     ttl = max(0, exp - int(datetime.now(timezone.utc).timestamp()))
     blacklist_token(jti=str(issued_at), ttl_seconds=ttl)
     return
+
+
+@router.get("/me")
+async def me(
+    user_id: int = Depends(get_current_user_id),
+):
+    return {"user": {"id": user_id}}
+
+
+class LoginIn(BaseModel):
+    provider: str
+    id_token: str
+
+
+@router.post("/login")
+async def login(
+    payload: LoginIn,
+    session=Depends(get_db_session),
+):
+    if payload.provider != "google":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported provider")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": payload.id_token})
+    if resp.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid id_token")
+
+    token_info = resp.json()
+    email = token_info.get("email")
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email not found in token")
+
+    user_repo = UserRepository(session=session)
+    user = await user_repo.create_if_not_exists(email=email)
+
+    access = create_access_token(subject=str(user.id))
+    refresh = create_refresh_token(subject=str(user.id))
+
+    return {
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "provider": "google",
+        },
+        "tokens": {
+            "access_token": access,
+            "refresh_token": refresh,
+            "token_type": "Bearer",
+            "expires_in": 3600,
+        },
+    }
 
 
