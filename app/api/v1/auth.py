@@ -122,6 +122,9 @@ async def login(
 
     user_repo = UserRepository(session=session)
     user = await user_repo.create_if_not_exists(email=email)
+    # Persist the user so that subsequent requests (new DB sessions)
+    # can reference the row (avoids FK violations on completions)
+    await session.commit()
 
     access = create_access_token(subject=str(user.id))
     refresh = create_refresh_token(subject=str(user.id))

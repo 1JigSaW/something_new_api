@@ -9,6 +9,7 @@ from app.services.challenge_service import ChallengeService
 from app.api.deps.auth import get_current_user_id
 from app.services.challenge_completion_service import ChallengeCompletionService
 from app.repositories.challenge_completion_repo import ChallengeCompletionRepository
+from app.repositories.user_repo import UserRepository
 
 
 router = APIRouter(prefix="/challenges", tags=["challenges"])
@@ -73,6 +74,18 @@ async def complete_challenge(
     user_id: int = Depends(get_current_user_id),
     session=Depends(get_db_session),
 ):
+    # Ensure challenge exists to avoid FK errors
+    challenge_service = ChallengeService(session=session)
+    item = await challenge_service.get(challenge_id=challenge_id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Ensure user exists to avoid FK errors on completion
+    user_repo = UserRepository(session=session)
+    user = await user_repo.get_by_id(user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
     service = ChallengeCompletionService(session=session)
     try:
         await service.complete_with_limit(

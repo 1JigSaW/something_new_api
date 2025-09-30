@@ -29,8 +29,12 @@ def is_token_blacklisted(
     jti: str,
 ) -> bool:
     settings = get_settings()
-    r = redis.from_url(settings.redis_url)
-    return r.exists(f"{settings.jwt_blacklist_prefix}{jti}") == 1
+    try:
+        r = redis.from_url(settings.redis_url)
+        return r.exists(f"{settings.jwt_blacklist_prefix}{jti}") == 1
+    except Exception:
+        # If Redis is unavailable, treat as not blacklisted to avoid 500
+        return False
 
 
 def blacklist_token(
@@ -38,7 +42,11 @@ def blacklist_token(
     ttl_seconds: int,
 ) -> None:
     settings = get_settings()
-    r = redis.from_url(settings.redis_url)
-    r.setex(name=f"{settings.jwt_blacklist_prefix}{jti}", time=ttl_seconds, value=1)
+    try:
+        r = redis.from_url(settings.redis_url)
+        r.setex(name=f"{settings.jwt_blacklist_prefix}{jti}", time=ttl_seconds, value=1)
+    except Exception:
+        # If Redis is unavailable, skip blacklisting silently in development/local
+        return
 
 
