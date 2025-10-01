@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     jwt_blacklist_prefix: str = "jwt:blacklist:"
 
     # Apple Sign In
-    apple_bundle_id: str | None = "org.reactjs.native.example.something-new-mobile"
+    apple_bundle_id: str | None = "somethingnewapp"
 
     admin_token: str | None = None
     s3_region: str | None = None
