@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import jwt
-from jwt.algorithms import RSAAlgorithm
+from jwt import PyJWKClient
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 import httpx
 from pydantic import BaseModel, EmailStr
@@ -134,23 +134,13 @@ async def login(
 
     if payload.provider == "apple":
         try:
-            unverified_header = jwt.get_unverified_header(payload.id_token)
-            kid = unverified_header.get("kid")
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                jwks = (await client.get("https://appleid.apple.com/auth/keys")).json()
-            key = None
-            for jwk in jwks.get("keys", []):
-                if jwk.get("kid") == kid:
-                    key = RSAAlgorithm.from_jwk(jwk)
-                    break
-            if key is None:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Apple key not found")
-
+            jwk_client = PyJWKClient("https://appleid.apple.com/auth/keys")
+            signing_key = jwk_client.get_signing_key_from_jwt(payload.id_token)
             claims = jwt.decode(
                 payload.id_token,
-                key=key,
+                key=signing_key.key,
                 algorithms=["RS256"],
-                audience=settings.apple_bundle_id or "org.reactjs.native.example.something-new-mobile",
+                audience=settings.apple_bundle_id or "somethingnewapp",
                 issuer="https://appleid.apple.com",
             )
         except Exception:
