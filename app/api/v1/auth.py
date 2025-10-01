@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import jwt
+from jwt.algorithms import RSAAlgorithm
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 import httpx
 from pydantic import BaseModel, EmailStr
@@ -107,40 +108,65 @@ async def login(
     payload: LoginIn,
     session=Depends(get_db_session),
 ):
-    if payload.provider != "google":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported provider")
-
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": payload.id_token})
-    if resp.status_code != 200:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid id_token")
-
-    token_info = resp.json()
-    email = token_info.get("email")
-    if not email:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email not found in token")
-
+    settings = get_settings()
     user_repo = UserRepository(session=session)
-    user = await user_repo.create_if_not_exists(email=email)
-    # Persist the user so that subsequent requests (new DB sessions)
-    # can reference the row (avoids FK violations on completions)
-    await session.commit()
 
-    access = create_access_token(subject=str(user.id))
-    refresh = create_refresh_token(subject=str(user.id))
+    if payload.provider == "google":
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": payload.id_token})
+        if resp.status_code != 200:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid id_token")
 
-    return {
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "provider": "google",
-        },
-        "tokens": {
-            "access_token": access,
-            "refresh_token": refresh,
-            "token_type": "Bearer",
-            "expires_in": 3600,
-        },
-    }
+        token_info = resp.json()
+        email = token_info.get("email")
+        if not email:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email not found in token")
+
+        user = await user_repo.create_if_not_exists(email=email)
+        await session.commit()
+
+        access = create_access_token(subject=str(user.id))
+        refresh = create_refresh_token(subject=str(user.id))
+        return {
+            "user": {"id": user.id, "email": user.email, "provider": "google"},
+            "tokens": {"access_token": access, "refresh_token": refresh, "token_type": "Bearer", "expires_in": 3600},
+        }
+
+    if payload.provider == "apple":
+        try:
+            unverified_header = jwt.get_unverified_header(payload.id_token)
+            kid = unverified_header.get("kid")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                jwks = (await client.get("https://appleid.apple.com/auth/keys")).json()
+            key = None
+            for jwk in jwks.get("keys", []):
+                if jwk.get("kid") == kid:
+                    key = RSAAlgorithm.from_jwk(jwk)
+                    break
+            if key is None:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Apple key not found")
+
+            claims = jwt.decode(
+                payload.id_token,
+                key=key,
+                algorithms=["RS256"],
+                audience=settings.apple_bundle_id or "org.reactjs.native.example.something-new-mobile",
+                issuer="https://appleid.apple.com",
+            )
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Apple identity token")
+
+        email = claims.get("email") or f"{claims.get('sub')}@appleid.apple.com"
+        user = await user_repo.create_if_not_exists(email=email)
+        await session.commit()
+
+        access = create_access_token(subject=str(user.id))
+        refresh = create_refresh_token(subject=str(user.id))
+        return {
+            "user": {"id": user.id, "email": user.email, "provider": "apple"},
+            "tokens": {"access_token": access, "refresh_token": refresh, "token_type": "Bearer", "expires_in": 3600},
+        }
+
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported provider")
 
 

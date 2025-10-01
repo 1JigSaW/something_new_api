@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends
@@ -17,7 +17,7 @@ async def profile_day(
     user_id: int = Depends(get_current_user_id),
     session=Depends(get_db_session),
 ):
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     cc_repo = ChallengeCompletionRepository(session=session)
     repl_repo = ReplacementRepository(session=session)
     cc = await cc_repo.count_for_day(user_id=user_id, d=today)
@@ -35,7 +35,7 @@ async def get_progress_stats(
     cc_repo = ChallengeCompletionRepository(session=session)
     
     # Get completion data for the last 30 days
-    end_date = date.today()
+    end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=30)
     
     daily_stats = []
