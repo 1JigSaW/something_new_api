@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import jwt
 from jwt import PyJWKClient
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 import httpx
 from pydantic import BaseModel, EmailStr
@@ -136,15 +137,46 @@ async def login(
         try:
             jwk_client = PyJWKClient("https://appleid.apple.com/auth/keys")
             signing_key = jwk_client.get_signing_key_from_jwt(payload.id_token)
-            claims = jwt.decode(
-                payload.id_token,
-                key=signing_key.key,
-                algorithms=["RS256"],
-                audience=settings.apple_bundle_id or "somethingnewapp",
-                issuer="https://appleid.apple.com",
-            )
+
+            if settings.environment and settings.environment.lower() != "prod":
+                claims = jwt.decode(
+                    payload.id_token,
+                    key=signing_key.key,
+                    algorithms=["RS256"],
+                    options={
+                        "verify_aud": False,
+                        "verify_iss": False,
+                    },
+                    leeway=120,
+                )
+            else:
+                claims = jwt.decode(
+                    payload.id_token,
+                    key=signing_key.key,
+                    algorithms=["RS256"],
+                    audience=settings.apple_bundle_id or "somethingnewapp",
+                    issuer="https://appleid.apple.com",
+                    leeway=120,
+                )
         except Exception:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Apple identity token")
+            logging.getLogger(__name__).exception("Apple token verification failed (strict path)")
+            # Dev-only fallback: decode without signature verification to unblock local testing
+            if settings.environment and settings.environment.lower() != "prod":
+                try:
+                    claims = jwt.decode(
+                        payload.id_token,
+                        options={
+                            "verify_signature": False,
+                            "verify_aud": False,
+                            "verify_iss": False,
+                        },
+                        leeway=120,
+                    )
+                except Exception:
+                    logging.getLogger(__name__).exception("Apple token decode failed (dev fallback)")
+                    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Apple identity token")
+            else:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Apple identity token")
 
         email = claims.get("email") or f"{claims.get('sub')}@appleid.apple.com"
         user = await user_repo.create_if_not_exists(email=email)
