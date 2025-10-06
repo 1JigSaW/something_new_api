@@ -1,6 +1,9 @@
 PY=python3
+ifneq (,$(wildcard .venv/bin/python))
+	PY:=.venv/bin/python
+endif
 
-.PHONY: install install-dev up down dev migrate revision lint fmt type test worker pre-commit seed-challenges seed-meta seed-all
+.PHONY: install install-dev up down dev migrate revision lint fmt type test worker pre-commit seed-challenges seed-meta seed-all import-cards
 
 install:
 	$(PY) -m pip install --upgrade pip
@@ -48,6 +51,9 @@ seed-meta:
 
 seed-all:
 	$(PY) -m app.tasks.seed_all
+
+import-cards:
+	$(PY) -m app.tasks.import_cards
 
 pre-commit:
 	pre-commit install
