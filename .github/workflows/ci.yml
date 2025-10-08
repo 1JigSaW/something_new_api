@@ -41,22 +41,22 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Prepare env
-        working-directory: ./something_new_api
+        working-directory: ./
         run: |
           echo "APP_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/something_new" >> .env
 
       - name: Run migrations
-        working-directory: ./something_new_api
+        working-directory: ./
         run: |
           alembic upgrade head
 
       - name: Lint
-        working-directory: ./something_new_api
+        working-directory: ./
         run: |
           ruff check .
 
       - name: Test
-        working-directory: ./something_new_api
+        working-directory: ./
         run: |
           pytest -q
 

@@ -9,6 +9,22 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: something_new
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d something_new" 
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
     defaults:
       run:
         working-directory: ${{ github.workspace }}
@@ -27,6 +43,10 @@ jobs:
       - name: Prepare env file
         run: |
           make prepare-env
-          if [ -n "${{ secrets.APP_DATABASE_URL }}" ]; then echo "APP_DATABASE_URL=${{ secrets.APP_DATABASE_URL }}" >> .env; fi
+          echo "APP_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/something_new" >> .env
+      - name: Run migrations
+        run: |
+          alembic upgrade head
       - name: Run tests
-        run: make test
+        run: |
+          pytest -q
