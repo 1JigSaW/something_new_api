@@ -3,7 +3,7 @@ ifneq (,$(wildcard .venv/bin/python))
 	PY:=.venv/bin/python
 endif
 
-.PHONY: install install-dev up down dev migrate revision lint fmt type test worker pre-commit seed-challenges seed-meta seed-all import-cards
+.PHONY: install install-dev up down dev migrate revision lint fmt type test worker pre-commit seed-challenges seed-meta seed-all import-cards prepare-env
 
 install:
 	$(PY) -m pip install --upgrade pip
@@ -60,3 +60,5 @@ pre-commit:
 	pre-commit run --all-files
 
 
+prepare-env:
+	if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi
