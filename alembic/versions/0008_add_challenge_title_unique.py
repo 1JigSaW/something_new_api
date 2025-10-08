@@ -9,10 +9,20 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add unique index on challenge title
-    op.create_index("ix_challenges_title", "challenges", ["title"], unique=True)
+    op.drop_index("ix_challenges_title", table_name="challenges")
+    op.create_index(
+        "ix_challenges_title",
+        "challenges",
+        ["title"],
+        unique=True,
+    )
 
 
 def downgrade() -> None:
-    # Remove unique index on challenge title
     op.drop_index("ix_challenges_title", table_name="challenges")
+    op.create_index(
+        "ix_challenges_title",
+        "challenges",
+        ["title"],
+        unique=False,
+    )
