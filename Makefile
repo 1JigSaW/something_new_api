@@ -58,7 +58,3 @@ import-cards:
 pre-commit:
 	pre-commit install
 	pre-commit run --all-files
-
-
-prepare-env:
-	if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi
